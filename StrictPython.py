@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import builtins
-from typing import Callable, Final, get_type_hints, get_origin
+from typing import Callable, Any, Optional, Final, NoReturn, get_type_hints, get_origin
 from types import MethodType
 import typeguard
 import functools
@@ -14,11 +14,19 @@ def force_static_typing(function: Callable | MethodType):
         # Get the annotations from the function. Separate the return annotation from the parameter annotations. Only the
         # values are kept, as the keys are the parameter names, and matching is done by indexing.
         function_annotations = get_type_hints(function).copy()
-        return_annotation = function_annotations.pop("return", None)
+        print("HERE", function_annotations)
+        if "return" in function_annotations.keys():
+            return_annotation = function_annotations.pop("return") or NoReturn
+        else:
+            raise AnnotationException(f"Missing return type annotation for function {function.__name__}")
         parameter_annotations = function_annotations.values()
 
         # The parameter annotations are checked against the arguments passed to the function. If the type is wrong, a
         # TypeError is raised.
+        # Check every parameter (except self) has a type annotation
+        print(function_args, parameter_annotations)
+        if len(parameter_annotations) < len(function_args[1:]):
+            raise AnnotationException(f"Missing type annotation for parameter {function_args[1:][len(parameter_annotations)]}")
         for argument, expected_argument_type in zip(function_args[1:], parameter_annotations):
             # print(expected_argument_type)
             # expected_argument_type = eval(expected_argument_type)
@@ -35,10 +43,12 @@ def force_static_typing(function: Callable | MethodType):
             except typeguard.TypeCheckError:
                 raise TypeMismatchException(f"Expected {return_annotation} but got {type(return_value)}")
             return return_value
-
-        # If there is no return annotation, the function is called as normal.
-        return function(*function_args, **function_kwargs)
     return _impl
+
+
+class AnnotationException(Exception):
+    # This exception is raised when a method or class is missing a type annotation
+    pass
 
 
 class AccessModifierException(Exception):
@@ -63,9 +73,10 @@ class base_object_metaclass(type):
     def __new__(cls, name, bases, dictionary):
         # Make sure all methods are static typed - this is done by wrapping the method in a decorator that checks the
         # types of the arguments and return value, and raises a TypeError if they are wrong.
+        blacklist = ["__getattr__", "__setattr__", "__getattribute__"]
 
         for attr_name, attr_value in dictionary.items():
-            if builtins.callable(attr_value):
+            if builtins.callable(attr_value) and attr_name not in blacklist:
                 dictionary[attr_name] = force_static_typing(attr_value)
         return super().__new__(cls, name, bases, dictionary)
 
@@ -83,10 +94,10 @@ class base_object(metaclass=base_object_metaclass):
     __friends__ = frozenset({})
     __slots__   = frozenset({})
 
-    def __init__(self):
+    def __init__(self) -> None:
         object.__init__(self)
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key, value) -> NoReturn:
         # Enforce type checking for the attributes of this class, and make sure the attribute was declared in the class
         # (ie not a dynamic attribute) => enforces a type is available
         type_hints = get_type_hints(self.__class__)
@@ -123,27 +134,27 @@ class base_object(metaclass=base_object_metaclass):
             try:
                 # Get the current caller frame and the base classes of this class
                 current_frame = inspect.currentframe().f_back
-                bases = super().__getattribute__("__class__").__mro__[:-1]
+                bases = object.__getattribute__(self, "__class__").__mro__[:-1]
 
                 # Check if the calling global function is a friend function
                 function_name = current_frame.f_code.co_name
-                if function_name in super().__getattribute__("__friends__") and "self" not in current_frame.f_locals:
-                    return super().__getattribute__(item)
+                if function_name in object.__getattribute__(self, "__friends__") and "self" not in current_frame.f_locals:
+                    return object.__getattribute__(self, item)
 
                 # Check if the caller is an instance of this class or subclass
                 is_sub_class = object.__getattribute__(current_frame.f_locals["self"], "__class__") in bases
                 if is_sub_class:
-                    return super().__getattribute__(item)
+                    return object.__getattribute__(self, item)
 
                 # Check if the calling method belongs to a friend class
                 class_name = object.__getattribute__(current_frame.f_locals["self"], "__class__").__name__
-                if class_name in super().__getattribute__("__friends__"):
-                    return super().__getattribute__(item)
+                if class_name in object.__getattribute__(self, "__friends__"):
+                    return object.__getattribute__(self, item)
 
                 # Check if the calling method is a friend function
                 method_name = ".".join([class_name, function_name])
-                if method_name in super().__getattribute__("__friends__"):
-                    return super().__getattribute__(item)
+                if method_name in object.__getattribute__(self, "__friends__"):
+                    return object.__getattribute__(self, item)
 
             except KeyError:
                 pass
