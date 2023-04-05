@@ -8,13 +8,19 @@ import functools
 import inspect
 
 
+any = Any
+optional = Optional
+callable = Callable
+final = Final
+no_return = NoReturn
+
+
 def force_static_typing(function: Callable | MethodType):
     @functools.wraps(function)
     def _impl(*function_args, **function_kwargs):
         # Get the annotations from the function. Separate the return annotation from the parameter annotations. Only the
         # values are kept, as the keys are the parameter names, and matching is done by indexing.
         function_annotations = get_type_hints(function).copy()
-        print("HERE", function_annotations)
         if "return" in function_annotations.keys():
             return_annotation = function_annotations.pop("return") or NoReturn
         else:
@@ -24,12 +30,9 @@ def force_static_typing(function: Callable | MethodType):
         # The parameter annotations are checked against the arguments passed to the function. If the type is wrong, a
         # TypeError is raised.
         # Check every parameter (except self) has a type annotation
-        print(function_args, parameter_annotations)
         if len(parameter_annotations) < len(function_args[1:]):
             raise AnnotationException(f"Missing type annotation for parameter {function_args[1:][len(parameter_annotations)]}")
         for argument, expected_argument_type in zip(function_args[1:], parameter_annotations):
-            # print(expected_argument_type)
-            # expected_argument_type = eval(expected_argument_type)
             try: typeguard.check_type(argument, expected_argument_type)
             except typeguard.TypeCheckError:
                 raise TypeMismatchException(f"Expected {expected_argument_type} but got {type(argument)}")
@@ -38,8 +41,12 @@ def force_static_typing(function: Callable | MethodType):
         # is raised.
         if return_annotation:
             return_value = function(*function_args, **function_kwargs)
-            # return_annotation = eval(return_annotation)
-            try: typeguard.check_type(return_value, return_annotation)
+            try:
+                # NoReturn check
+                if return_annotation == NoReturn and return_value is not None:
+                    raise TypeMismatchException(f"Expected no return value but got {type(return_value)}")
+                elif return_annotation != NoReturn:
+                    typeguard.check_type(return_value, return_annotation)
             except typeguard.TypeCheckError:
                 raise TypeMismatchException(f"Expected {return_annotation} but got {type(return_value)}")
             return return_value
@@ -111,7 +118,7 @@ class base_object(metaclass=base_object_metaclass):
         except typeguard.TypeCheckError:
             raise TypeMismatchException(f"Attribute{self.__class__.__name__}.{key} expected type {type_hints[key]} but got {type(value)}")
         except AssertionError:
-            raise AttributeError(f"Attribute {self.__class__.__name__}.{key} does not exist or hasn't been type-defined")
+            raise AnnotationException(f"Attribute {self.__class__.__name__}.{key} does not exist or hasn't been type-defined")
         object.__setattr__(self, key, value)
 
     def __getattribute__(self, item):
