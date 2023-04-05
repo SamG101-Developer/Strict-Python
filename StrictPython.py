@@ -180,32 +180,3 @@ class base_object(metaclass=base_object_metaclass):
         # If the attribute hasn't been returned, then an enemy class is trying to access a member of this class
         raise AccessModifierException(f"Non-Friendly callers cannot access protected member {self.__class__.__name__}.{item}")
 
-
-def is_function_empty(f: typing.Callable) -> bool:
-    def function_that_passes() -> std.no_return:
-        pass
-
-    def function_empty() -> std.no_return:
-        ...
-
-    def function_only_docstring() -> std.no_return:
-        """ This is a docstring """
-
-    def function_return() -> std.no_return:
-        return None
-
-    lambda_empty = lambda: None
-    lambda_only_docstring = lambda: None
-    lambda_only_docstring.__doc__ = "This is a docstring"
-
-    def constants(g: typing.Callable):
-        return tuple(x for x in g.__code__.co_consts if x != f.__doc__)
-
-    return any([
-        f.__code__.co_code == function_that_passes.__code__.co_code and constants(f) == constants(function_that_passes),
-        f.__code__.co_code == function_empty.__code__.co_code and constants(f) == constants(function_empty),
-        f.__code__.co_code == function_only_docstring.__code__.co_code and constants(f) == constants(function_only_docstring),
-        f.__code__.co_code == function_return.__code__.co_code and constants(f) == constants(function_return),
-        f.__code__.co_code == lambda_empty.__code__.co_code and constants(f) == constants(lambda_empty),
-        f.__code__.co_code == lambda_only_docstring.__code__.co_code and constants(f) == constants(lambda_only_docstring),
-    ])
