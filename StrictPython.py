@@ -20,12 +20,15 @@ def force_static_typing(function: Callable | MethodType):
             raise AnnotationException(f"Missing return type annotation for function {function.__name__}")
         parameter_annotations = function_annotations.values()
 
+        methods = inspect.getmembers(function_args[0], inspect.ismethod)
+        head = builtins.any([function.__name__ == method[0] for method in methods])
+
         # The parameter annotations are checked against the arguments passed to the function. If the type is wrong, a
         # TypeError is raised.
         # Check every parameter (except self) has a type annotation
-        if len(parameter_annotations) < len(function_args[1:]):
-            raise AnnotationException(f"Missing type annotation for parameter {function_args[1:][len(parameter_annotations)]}")
-        for argument, expected_argument_type in zip(function_args[1:], parameter_annotations):
+        if len(parameter_annotations) < len(function_args[head:]):
+            raise AnnotationException(f"Missing type annotation for parameter {function_args[head:][len(parameter_annotations)]}")
+        for argument, expected_argument_type in zip(function_args[head:], parameter_annotations):
             try: typeguard.check_type(argument, expected_argument_type)
             except typeguard.TypeCheckError:
                 raise TypeMismatchException(f"Expected {expected_argument_type} but got {type(argument)}")
@@ -91,7 +94,7 @@ class base_object_metaclass(type):
 
 # Base object class for every object that will be used in Python for anything (ie a replacement for object)
 class base_object(metaclass=base_object_metaclass):
-    __friends__ = frozenset({})
+    __friends__ = frozenset({"inspect._getmembers"})
     __slots__   = frozenset({})
 
     def __init__(self) -> None:
@@ -128,19 +131,16 @@ class base_object(metaclass=base_object_metaclass):
 
         # Protected attribute access
         if item[0] == "_":
-            print(self.__friends__)
-            print(inspect.currentframe().f_back.f_code.co_name)
+            # Get the current caller frame and the base classes of this class
+            current_frame = inspect.currentframe().f_back
+            bases = object.__getattribute__(self, "__class__").__mro__[:-1]
 
-            try:
-                # Get the current caller frame and the base classes of this class
-                current_frame = inspect.currentframe().f_back
-                bases = object.__getattribute__(self, "__class__").__mro__[:-1]
+            # Check if the calling global function is a friend function
+            function_name = current_frame.f_code.co_name
+            if function_name in object.__getattribute__(self, "__friends__") and "self" not in current_frame.f_locals:
+                return object.__getattribute__(self, item)
 
-                # Check if the calling global function is a friend function
-                function_name = current_frame.f_code.co_name
-                if function_name in object.__getattribute__(self, "__friends__") and "self" not in current_frame.f_locals:
-                    return object.__getattribute__(self, item)
-
+            if "self" in current_frame.f_locals:
                 # Check if the caller is an instance of this class or subclass
                 is_sub_class = object.__getattribute__(current_frame.f_locals["self"], "__class__") in bases
                 if is_sub_class:
@@ -156,12 +156,26 @@ class base_object(metaclass=base_object_metaclass):
                 if method_name in object.__getattribute__(self, "__friends__"):
                     return object.__getattribute__(self, item)
 
-            except KeyError:
-                pass
+            # Check all the same but for module specific functions ie for each scoped friend, remove check if the
+            # first part (before first dot) is the module of the caller, and if so, remove the module part of the
+            # name and call this method with the remaining part of the name
+            for friend in object.__getattribute__(self, "__friends__"):
+                module = friend.split(".")[0]
+                friend = ".".join(friend.split(".")[1:])
+
+                class_name = ""
+                method_name = ""
+                if "self" in current_frame.f_locals:
+                    class_name = object.__getattribute__(current_frame.f_locals["self"], "__class__").__name__
+                    method_name = ".".join([class_name, function_name])
+
+                if builtins.any([friend == x for x in [function_name, class_name, method_name]]):
+                    if module == current_frame.f_globals["__name__"]:
+                        return object.__getattribute__(self, item)
 
         else:
             # Return public attributes as usual
             return object.__getattribute__(self, item)
 
         # If the attribute hasn't been returned, then an enemy class is trying to access a member of this class
-        raise AccessModifierException("Non-Friendly callers cannot access protected members")
+        raise AccessModifierException(f"Non-Friendly callers cannot access protected member {self.__class__.__name__}.{item}")
