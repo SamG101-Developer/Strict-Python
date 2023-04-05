@@ -5,6 +5,7 @@ Strict Python is a small libary that enforces several concepts from other langua
 - Type checking on function parameters -> checked against annotations
 - Type checking on function return value -> checked against annotation
 - Type checking on attributes being set -> checked against annotation
+- All parameters and return types are required
 - All attributes must be declared at the top of the class with their associated type
 - Attributes defined as a typing.Final[T] are not modifiable, except from the constructor
 - Access modifiers are enforced via naming conventions (\_protected, \_\_private)
@@ -13,7 +14,7 @@ Strict Python is a small libary that enforces several concepts from other langua
 ### Areas that need work on
 - Decorators -> these change the name of the functions in the inspect stack, causing issues on function name checks
 - Haven't tested overloads or anything relating to them, so not sure how these hold out
-
+- Optional parameters haven't been tested yet
 
 ---
 
