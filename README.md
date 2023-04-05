@@ -15,6 +15,9 @@ Strict Python is a small libary that enforces several concepts from other langua
 - Haven't tested overloads or anything relating to them, so not sure how these hold out
 
 
+---
+
+
 ```python
 class TestClass(base_object):
     __friends__ = frozenset({"main"})
@@ -25,7 +28,7 @@ class TestClass(base_object):
     _c: std.final[int]
 
     def __init__(self):
-        std.base_object.__init__(self)
+        base_object.__init__(self)
         self._a = ""
 
     def _b(self, a: int):
