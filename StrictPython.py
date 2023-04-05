@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import builtins
-from typing import Callable, get_type_hints
+from typing import Callable, Final, get_type_hints, get_origin
 from types import MethodType
 import typeguard
 import functools
@@ -24,7 +24,7 @@ def force_static_typing(function: Callable | MethodType):
             # expected_argument_type = eval(expected_argument_type)
             try: typeguard.check_type(argument, expected_argument_type)
             except typeguard.TypeCheckError:
-                raise TypeError(f"Expected {expected_argument_type} but got {type(argument)}")
+                raise TypeMismatchException(f"Expected {expected_argument_type} but got {type(argument)}")
 
         # The return annotation is checked against the return value of the function. If the type is wrong, a TypeError
         # is raised.
@@ -33,7 +33,7 @@ def force_static_typing(function: Callable | MethodType):
             # return_annotation = eval(return_annotation)
             try: typeguard.check_type(return_value, return_annotation)
             except typeguard.TypeCheckError:
-                raise TypeError(f"Expected {return_annotation} but got {type(return_value)}")
+                raise TypeMismatchException(f"Expected {return_annotation} but got {type(return_value)}")
             return return_value
 
         # If there is no return annotation, the function is called as normal.
@@ -41,10 +41,20 @@ def force_static_typing(function: Callable | MethodType):
     return _impl
 
 
-# Custom exception for exceptions related to accessing an attribute or method that si not permitted
 class AccessModifierException(Exception):
     # This exception is raised when a non friendly method or class tries to access a protected / private attribute or
     # method of a class that inherits the DOMBaseClass
+    pass
+
+
+class TypeMismatchException(Exception):
+    # This exception is thrown when a type mismatch is detected in the type checking of a parameter, return value or
+    # attribute
+    pass
+
+
+class ConstModifierException(Exception):
+    # This exception is thrown when a const attribute is modified
     pass
 
 
@@ -83,11 +93,14 @@ class base_object(metaclass=base_object_metaclass):
 
         try:
             assert key in get_type_hints(self.__class__)
+            # cant modify a Final[T], unless from a constructor
+            if get_origin(type_hints[key]) == Final and not inspect.stack()[1].function == "__init__":
+                raise ConstModifierException(f"Attribute {self.__class__.__name__}.{key} is final and cannot be changed")
             typeguard.check_type(value, type_hints[key])
         except typeguard.TypeCheckError:
-            raise TypeError(f"Attribute{self.__class__.__name__}.{key} expected type {type_hints[key]} but got {type(value)}")
+            raise TypeMismatchException(f"Attribute{self.__class__.__name__}.{key} expected type {type_hints[key]} but got {type(value)}")
         except AssertionError:
-            raise AttributeError(f"Attribute {self}.{key} does not exist or hasn't been type-defined")
+            raise AttributeError(f"Attribute {self.__class__.__name__}.{key} does not exist or hasn't been type-defined")
         object.__setattr__(self, key, value)
 
     def __getattribute__(self, item):
