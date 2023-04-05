@@ -14,8 +14,12 @@ Strict Python is a small libary that enforces several concepts from other langua
 ### Areas that need work on
 - Decorators -> these change the name of the functions in the inspect stack, causing issues on function name checks
 - Haven't tested overloads or anything relating to them, so not sure how these hold out
-- Optional parameters haven't been tested yet
+- Haven't tested optional parameters either
+- Haven't tested static methods / non-class functions yet
 
+### Notes
+- Annotate cosntructor return types as None
+- Annotate other non-returning methods as typing.NoReturn
 ---
 
 
@@ -28,11 +32,11 @@ class TestClass(base_object):
     _b: int
     _c: std.final[int]
 
-    def __init__(self):
+    def __init__(self) -> None:
         base_object.__init__(self)
         self._a = ""
 
-    def _b(self, a: int):
+    def _b(self, a: int) -> NoReturn:
         self._b = 100  # Fine
         self._a = a  # TypeMismatchException
         self._c = 123  # ConstModificationException
