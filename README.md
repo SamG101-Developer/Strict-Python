@@ -17,6 +17,12 @@ Strict Python is a small libary that enforces several concepts from other langua
 - Haven't tested optional parameters either
 - Haven't tested static methods / non-class functions yet
 
+### Throwable exceptions
+- `AnnotationException`: Function parameter, return type, or an attribute is missing a type annotation
+- `AccessModificationException`: A non-friend object is trying to access a non-public member of the class
+- `TypeMismatchException`: Incorrect argument/returned type to/from a method
+- `ConstModificationException`: A Final[T] attribute is being modified from a non-constructor context
+
 ### Notes
 - Annotate cosntructor return types as None
 - Annotate other non-returning methods as typing.NoReturn
