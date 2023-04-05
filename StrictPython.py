@@ -1,21 +1,21 @@
 from __future__ import annotations
 
 import builtins
-from typing import Callable, Any, Optional, Final, NoReturn, get_type_hints, get_origin
-from types import MethodType
+import typing
+import types
 import typeguard
 import functools
 import inspect
 
 
-def force_static_typing(function: Callable | MethodType):
+def force_static_typing(function: typing.Callable | types.MethodType):
     @functools.wraps(function)
     def _impl(*function_args, **function_kwargs):
         # Get the annotations from the function. Separate the return annotation from the parameter annotations. Only the
         # values are kept, as the keys are the parameter names, and matching is done by indexing.
-        function_annotations = get_type_hints(function).copy()
+        function_annotations = typing.get_type_hints(function).copy()
         if "return" in function_annotations.keys():
-            return_annotation = function_annotations.pop("return") or NoReturn
+            return_annotation = function_annotations.pop("return") or typing.NoReturn
         else:
             raise AnnotationException(f"Missing return type annotation for function {function.__name__}")
         parameter_annotations = function_annotations.values()
@@ -39,9 +39,9 @@ def force_static_typing(function: Callable | MethodType):
             return_value = function(*function_args, **function_kwargs)
             try:
                 # NoReturn check
-                if return_annotation == NoReturn and return_value is not None:
+                if return_annotation == typing.NoReturn and return_value is not None:
                     raise TypeMismatchException(f"Expected no return value but got {type(return_value)}")
-                elif return_annotation != NoReturn:
+                elif return_annotation != typing.NoReturn:
                     typeguard.check_type(return_value, return_annotation)
             except typeguard.TypeCheckError:
                 raise TypeMismatchException(f"Expected {return_annotation} but got {type(return_value)}")
@@ -100,15 +100,15 @@ class base_object(metaclass=base_object_metaclass):
     def __init__(self) -> None:
         object.__init__(self)
 
-    def __setattr__(self, key, value) -> NoReturn:
+    def __setattr__(self, key, value) -> typing.NoReturn:
         # Enforce type checking for the attributes of this class, and make sure the attribute was declared in the class
         # (ie not a dynamic attribute) => enforces a type is available
-        type_hints = get_type_hints(self.__class__)
+        type_hints = typing.get_type_hints(self.__class__)
 
         try:
-            assert key in get_type_hints(self.__class__)
+            assert key in typing.get_type_hints(self.__class__)
             # cant modify a Final[T], unless from a constructor
-            if get_origin(type_hints[key]) == Final and not inspect.stack()[1].function == "__init__":
+            if typing.get_origin(type_hints[key]) == typing.Final and not inspect.stack()[1].function == "__init__":
                 raise ConstModifierException(f"Attribute {self.__class__.__name__}.{key} is final and cannot be changed")
             typeguard.check_type(value, type_hints[key])
         except typeguard.TypeCheckError:
@@ -179,3 +179,33 @@ class base_object(metaclass=base_object_metaclass):
 
         # If the attribute hasn't been returned, then an enemy class is trying to access a member of this class
         raise AccessModifierException(f"Non-Friendly callers cannot access protected member {self.__class__.__name__}.{item}")
+
+
+def is_function_empty(f: typing.Callable) -> bool:
+    def function_that_passes() -> std.no_return:
+        pass
+
+    def function_empty() -> std.no_return:
+        ...
+
+    def function_only_docstring() -> std.no_return:
+        """ This is a docstring """
+
+    def function_return() -> std.no_return:
+        return None
+
+    lambda_empty = lambda: None
+    lambda_only_docstring = lambda: None
+    lambda_only_docstring.__doc__ = "This is a docstring"
+
+    def constants(g: typing.Callable):
+        return tuple(x for x in g.__code__.co_consts if x != f.__doc__)
+
+    return any([
+        f.__code__.co_code == function_that_passes.__code__.co_code and constants(f) == constants(function_that_passes),
+        f.__code__.co_code == function_empty.__code__.co_code and constants(f) == constants(function_empty),
+        f.__code__.co_code == function_only_docstring.__code__.co_code and constants(f) == constants(function_only_docstring),
+        f.__code__.co_code == function_return.__code__.co_code and constants(f) == constants(function_return),
+        f.__code__.co_code == lambda_empty.__code__.co_code and constants(f) == constants(lambda_empty),
+        f.__code__.co_code == lambda_only_docstring.__code__.co_code and constants(f) == constants(lambda_only_docstring),
+    ])
