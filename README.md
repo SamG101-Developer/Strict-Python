@@ -10,12 +10,12 @@ Strict Python is a small libary that enforces several concepts from other langua
 - Attributes defined as a typing.Final[T] are not modifiable, except from the constructor
 - Access modifiers are enforced via naming conventions (\_protected, \_\_private)
 - Can declare friend functions, classes or methods to allow access to non-public members
+- For non-class methods, just apply the decorator `force_static_typing` directly
 
 ### Areas that need work on
 - Decorators -> these change the name of the functions in the inspect stack, causing issues on function name checks
 - Haven't tested overloads or anything relating to them, so not sure how these hold out
 - Haven't tested optional parameters either
-- Haven't tested static methods / non-class functions yet
 - Think subclasses can access private attributes still
 
 ### Throwable exceptions
