@@ -16,6 +16,7 @@ Strict Python is a small libary that enforces several concepts from other langua
 - Haven't tested overloads or anything relating to them, so not sure how these hold out
 - Haven't tested optional parameters either
 - Haven't tested static methods / non-class functions yet
+- Think subclasses can access private attributes still
 
 ### Throwable exceptions
 - `AnnotationException`: Function parameter, return type, or an attribute is missing a type annotation
