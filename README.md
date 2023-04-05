@@ -1,0 +1,2 @@
+# Strict-Python
+Strict Python
