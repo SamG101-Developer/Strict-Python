@@ -26,6 +26,7 @@ Strict Python is a small libary that enforces several concepts from other langua
 ### Notes
 - Annotate cosntructor return types as None
 - Annotate other non-returning methods as typing.NoReturn
+- __friends__ must be a set (can be a frozenset)
 ---
 
 
