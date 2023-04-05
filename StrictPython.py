@@ -8,13 +8,6 @@ import functools
 import inspect
 
 
-any = Any
-optional = Optional
-callable = Callable
-final = Final
-no_return = NoReturn
-
-
 def force_static_typing(function: Callable | MethodType):
     @functools.wraps(function)
     def _impl(*function_args, **function_kwargs):
