@@ -169,7 +169,7 @@ class BaseObjectMetaClass(type):
         :param dictionary: A dictionary of the class attributes.
         """
 
-        cls.__friends__ = set(cls.__friends__).union(cls.__mro__[-2].__friends__)
+        cls.__friends__ = set(cls.__friends__).union(cls.__mro__[-2].__friends__) if hasattr(cls.__mro__[-2], "__friends__") else set()
         super(BaseObjectMetaClass, cls).__init__(name, bases, dictionary)
 
 
