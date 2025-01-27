@@ -125,3 +125,73 @@ class TestStrictPython(TestCase):
 
         f = Friend()
         f.method()
+
+    def test_non_override_non_virtual_method(self):
+        class Test(std.BaseObject):
+            def method(self) -> int:
+                return 0
+
+        with self.assertRaises(std.VirtualMethodException):
+            class Derived(Test):
+                def method(self) -> int:
+                    return 1
+
+    def test_override_non_virtual_method(self):
+        class Test(std.BaseObject):
+            def method(self) -> int:
+                return 0
+
+        with self.assertRaises(std.VirtualMethodException):
+            class Derived(Test):
+                @std.override_method
+                def method(self) -> int:
+                    return 1
+
+    def test_non_override_virtual_method(self):
+        class Test(std.BaseObject):
+            @std.virtual_method
+            def method(self) -> int:
+                return 0
+
+        with self.assertRaises(std.VirtualMethodException):
+            class Derived(Test):
+                def method(self) -> int:
+                    return 1
+
+    def test_override_virtual_method(self):
+        class Test(std.BaseObject):
+            @std.virtual_method
+            def method(self) -> int:
+                return 0
+
+        class Derived(Test):
+            @std.override_method
+            def method(self) -> int:
+                return 1
+
+        d = Derived()
+        self.assertEqual(d.method(), 1)
+
+    def test_missing_abstract_method_implementation(self):
+        class Test(std.BaseObject):
+            @std.abstract_method
+            def method(self) -> int:
+                return 0
+
+        with self.assertRaises(std.AbstractMethodException):
+            class Derived(Test):
+                ...
+
+    def test_override_abstract_method(self):
+        class Test(std.BaseObject):
+            @std.abstract_method
+            def method(self) -> int:
+                pass
+
+        class Derived(Test):
+            @std.override_method
+            def method(self) -> int:
+                return 1
+
+        d = Derived()
+        self.assertEqual(d.method(), 1)

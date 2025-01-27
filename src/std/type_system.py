@@ -6,19 +6,32 @@ import types
 import typeguard
 
 
+def virtual_method(f: typing.Callable) -> typing.Callable:
+    f.__is_virtual__ = True
+    return f
+
+
+def abstract_method(f: typing.Callable) -> typing.Callable:
+    f.__is_abstract__ = True
+    return f
+
+
+def override_method(f: typing.Callable) -> typing.Callable:
+    f.__is_override__ = True
+    return f
+
+
 class AnnotationException(Exception):
     """
     This exception is raised when an attribute is missing a type annotation on a class. Every attribute must have an
     annotation for type-checking.
     """
-    pass
 
 
 class TypeMismatchException(Exception):
     """
     This exception is raised when a parameter, return value or attribute has a type mismatch with the expected type.
     """
-    pass
 
 
 class AccessModifierException(Exception):
@@ -26,14 +39,26 @@ class AccessModifierException(Exception):
     This exception is raised when a non-friendly method or class tries to access a protected / private attribute or
     method.
     """
-    pass
 
 
 class ConstModifierException(Exception):
     """
     This exception is raised when a const attribute is modified.
     """
-    pass
+
+
+class VirtualMethodException(Exception):
+    """
+    This exception is thrown when an overridden method is not marked as virtual or abstract, or a non-virtual method is
+    marked as override.
+    """
+
+
+class AbstractMethodException(Exception):
+    """
+    This exception is thrown when an abstract method is not implemented in a subclass. Abstract methods must be
+    implemented in all subclasses.
+    """
 
 
 def ForceStaticTyping(function: typing.Callable | types.MethodType):
@@ -67,14 +92,19 @@ def ForceStaticTyping(function: typing.Callable | types.MethodType):
         # is raised.
         if return_annotation:
             return_value = function(*function_args, **function_kwargs)
+
             try:
                 # NoReturn check
                 if return_annotation == typing.NoReturn and return_value is not None:
                     raise TypeMismatchException(f"Expected no return value but got {type(return_value)}")
+
+                # Todo: abstract methods shouldn't need to return a value
                 elif return_annotation != typing.NoReturn:
                     typeguard.check_type(return_value, return_annotation)
+
             except typeguard.TypeCheckError:
                 raise TypeMismatchException(f"Expected {return_annotation} but got {type(return_value)}")
+
             return return_value
 
     return _impl
@@ -103,7 +133,28 @@ class BaseObjectMetaClass(type):
 
         for attr_name, attr_value in dictionary.items():
             if builtins.callable(attr_value) and attr_name not in blacklist:
+
+                # Check every method found on a base-class is virtual or abstract.
+                for b in filter(lambda c: c != BaseObject, bases):
+                    if attr_name in b.__dict__ and not (
+                            hasattr(b.__dict__[attr_name], "__is_virtual__") or hasattr(b.__dict__[attr_name],
+                                                                                        "__is_abstract__")):
+                        raise VirtualMethodException(
+                            f"Method {attr_name} must be marked as virtual or abstract on base class '{b.__name__}'")
+
+                    if attr_name in b.__dict__ and not hasattr(attr_value, "__is_override__"):
+                        raise VirtualMethodException(f"Method {attr_name} must be marked as override on class '{name}'")
+
                 dictionary[attr_name] = ForceStaticTyping(attr_value)
+
+        for b in bases:
+            for b_attr_name, b_attr_value in b.__dict__.items():
+
+                if builtins.callable(b_attr_value):
+                    if hasattr(b_attr_value, "__is_abstract__") and b_attr_name not in dictionary:
+                        raise AbstractMethodException(
+                            f"Abstract method {b_attr_name} must be implemented in class '{name}'")
+
         return super().__new__(cls, name, bases, dictionary)
 
     def __init__(cls, name, bases, dictionary):
@@ -149,18 +200,21 @@ class BaseObject(metaclass=BaseObjectMetaClass):
             # Check if the type hint is a Final type, the attribute is being set in the constructor. This prevents const#
             # attributes from being set in methods.
             if typing.get_origin(type_hints[key]) == typing.Final and not inspect.stack()[1].function == "__init__":
-                raise ConstModifierException(f"Attribute {self.__class__.__name__}.{key} is final and cannot be changed")
+                raise ConstModifierException(
+                    f"Attribute {self.__class__.__name__}.{key} is final and cannot be changed")
 
             # Run the type checker to ensure that the value being set matches the expected type.
             typeguard.check_type(value, type_hints[key])
 
         except typeguard.TypeCheckError:
             # Handle an incorrect type error by raising a TypeMismatchException.
-            raise TypeMismatchException(f"Attribute{self.__class__.__name__}.{key} expected type {type_hints[key]} but got {type(value)}")
+            raise TypeMismatchException(
+                f"Attribute{self.__class__.__name__}.{key} expected type {type_hints[key]} but got {type(value)}")
 
         except AssertionError:
             # Handle a missing type annotation by raising an AnnotationException.
-            raise AnnotationException(f"Attribute {self.__class__.__name__}.{key} does not exist or hasn't been type-defined")
+            raise AnnotationException(
+                f"Attribute {self.__class__.__name__}.{key} does not exist or hasn't been type-defined")
 
         # If all checks pass, set the attribute as usual.
         object.__setattr__(self, key, value)
@@ -219,23 +273,6 @@ class BaseObject(metaclass=BaseObjectMetaClass):
                 if method_name in object.__getattribute__(self, "__friends__"):
                     return object.__getattribute__(self, item)
 
-            # # Check all the same but for module specific functions ie for each scoped friend, remove check if the
-            # # first part (before first dot) is the module of the caller, and if so, remove the module part of the
-            # # name and call this method with the remaining part of the name
-            # for friend in object.__getattribute__(self, "__friends__"):
-            #     module = friend.split(".")[0]
-            #     friend = ".".join(friend.split(".")[1:])
-            #
-            #     class_name = ""
-            #     method_name = ""
-            #     if "self" in current_frame.f_locals:
-            #         class_name = object.__getattribute__(current_frame.f_locals["self"], "__class__").__name__
-            #         method_name = ".".join([class_name, function_name])
-            #
-            #     if builtins.any([friend == x for x in [function_name, class_name, method_name]]):
-            #         if module == current_frame.f_globals["__name__"]:
-            #             return object.__getattribute__(self, item)
-
         else:
             # Return public attributes as usual
             return object.__getattribute__(self, item)
@@ -245,10 +282,32 @@ class BaseObject(metaclass=BaseObjectMetaClass):
             f"Non-Friendly callers cannot access protected member {self.__class__.__name__}.{item}")
 
 
+def PartialClass(base_class):
+    def decorator(extension_class):
+        for attr_key, attr_value in extension_class.__dict__.items():
+            if not attr_key.startswith('__'):
+                setattr(base_class, attr_key, attr_value)
+
+        if hasattr(extension_class, "__annotations__"):
+            if not hasattr(base_class, "__annotations__"):
+                base_class.__annotations__ = {}
+            base_class.__annotations__.update(extension_class.__annotations__)
+
+        return base_class
+
+    return decorator
+
+
 __all__ = [
+    "virtual_method",
+    "abstract_method",
+    "override_method",
     "AnnotationException",
     "TypeMismatchException",
     "AccessModifierException",
     "ConstModifierException",
-    "BaseObject"
+    "VirtualMethodException",
+    "AbstractMethodException",
+    "BaseObject",
+    "PartialClass"
 ]
