@@ -143,7 +143,8 @@ class BaseObjectMetaClass(type):
                 # Check every method found on a base-class is virtual or abstract.
                 for b in filter(lambda c: c != BaseObject, bases):
                     if attr_name in b.__dict__ and not (hasattr(b.__dict__[attr_name], "__is_virtual__") or hasattr(b.__dict__[attr_name], "__is_abstract__")):
-                        raise VirtualMethodException(f"Method {attr_name} must be marked as virtual or abstract on base class '{b.__name__}'")
+                        if not (attr_name.startswith("__") and attr_name.endswith("__")):
+                            raise VirtualMethodException(f"Method {attr_name} must be marked as virtual or abstract on base class '{b.__name__}'")
 
                     if attr_name in b.__dict__ and not hasattr(attr_value, "__is_override__"):
                         raise OverrideMethodException(f"Method {attr_name} must be marked as override on class '{name}'")
