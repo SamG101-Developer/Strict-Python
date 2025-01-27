@@ -1,5 +1,5 @@
 # Strict-Python
-Strict Python is a small libary that enforces several concepts from other language, reducing the flexibility and ensuring better safety in certain areas of Python code.
+Strict Python is a small library that enforces several concepts from other language, reducing the flexibility and ensuring better safety in certain areas of Python code.
 
 ### Functionality
 - Type checking on function parameters -> checked against annotations
@@ -15,36 +15,39 @@ Strict Python is a small libary that enforces several concepts from other langua
 ### Areas that need work on
 - Decorators -> these change the name of the functions in the inspect stack, causing issues on function name checks
 - Haven't tested overloads or anything relating to them, so not sure how these hold out
-- Haven't tested optional parameters either
-- Think subclasses can access private attributes still
+- Haven't tested optional parameters
 
 ### Throwable exceptions
 - `AnnotationException`: Function parameter, return type, or an attribute is missing a type annotation
 - `AccessModificationException`: A non-friend object is trying to access a non-public member of the class
 - `TypeMismatchException`: Incorrect argument/returned type to/from a method
 - `ConstModificationException`: A Final[T] attribute is being modified from a non-constructor context
+- `VirtualMethodException`: Non-virtual method being overridden.
+- `AbstractMethodException`: Abstract method not being implemented in a subclass
+- `OverrideMethodException`: Override method not marked as override.
 
 ### Notes
-- Annotate cosntructor return types as None
-- Annotate other non-returning methods as typing.NoReturn
-- __friends__ must be a set (can be a frozenset)
+- Annotate any constructor's return type as `None`
+- Annotate other non-returning methods as `std.NoReturn`
+- The `__friends__` attribute must be a set (can be a frozenset)
 ---
 
 
 ```python
-class TestClass(base_object):
+import std
+
+class TestClass(std.BaseObject):
     __friends__ = frozenset({"main"})
     __slots__ = frozenset({"_a", "_b", "_c"})
     
-    _a: str
-    _b: int
-    _c: std.final[int]
+    _a: std.Str
+    _b: std.Int
+    _c: std.Const[std.Int] = 123 
 
     def __init__(self) -> None:
-        base_object.__init__(self)
         self._a = ""
 
-    def _b(self, a: int) -> NoReturn:
+    def _b(self, a: int) -> std.NoReturn:
         self._b = 100  # Fine
         self._a = a  # TypeMismatchException
         self._c = 123  # ConstModificationException

@@ -54,6 +54,12 @@ class VirtualMethodException(Exception):
     """
 
 
+class OverrideMethodException(Exception):
+    """
+    This exception is thrown when an overridden method's base method is not marked as virtual or abstract.
+    """
+
+
 class AbstractMethodException(Exception):
     """
     This exception is thrown when an abstract method is not implemented in a subclass. Abstract methods must be
@@ -136,14 +142,11 @@ class BaseObjectMetaClass(type):
 
                 # Check every method found on a base-class is virtual or abstract.
                 for b in filter(lambda c: c != BaseObject, bases):
-                    if attr_name in b.__dict__ and not (
-                            hasattr(b.__dict__[attr_name], "__is_virtual__") or hasattr(b.__dict__[attr_name],
-                                                                                        "__is_abstract__")):
-                        raise VirtualMethodException(
-                            f"Method {attr_name} must be marked as virtual or abstract on base class '{b.__name__}'")
+                    if attr_name in b.__dict__ and not (hasattr(b.__dict__[attr_name], "__is_virtual__") or hasattr(b.__dict__[attr_name], "__is_abstract__")):
+                        raise VirtualMethodException(f"Method {attr_name} must be marked as virtual or abstract on base class '{b.__name__}'")
 
                     if attr_name in b.__dict__ and not hasattr(attr_value, "__is_override__"):
-                        raise VirtualMethodException(f"Method {attr_name} must be marked as override on class '{name}'")
+                        raise OverrideMethodException(f"Method {attr_name} must be marked as override on class '{name}'")
 
                 dictionary[attr_name] = ForceStaticTyping(attr_value)
 
@@ -308,6 +311,7 @@ __all__ = [
     "ConstModifierException",
     "VirtualMethodException",
     "AbstractMethodException",
+    "OverrideMethodException",
     "BaseObject",
     "PartialClass"
 ]

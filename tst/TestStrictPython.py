@@ -153,7 +153,7 @@ class TestStrictPython(TestCase):
             def method(self) -> int:
                 return 0
 
-        with self.assertRaises(std.VirtualMethodException):
+        with self.assertRaises(std.OverrideMethodException):
             class Derived(Test):
                 def method(self) -> int:
                     return 1
