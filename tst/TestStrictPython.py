@@ -39,6 +39,21 @@ class TestStrictPython(TestCase):
             t = Test()
             t.method("string")
 
+    def test_parameters_static_method(self):
+        class Test(std.BaseObject):
+            @staticmethod
+            def method(param: int) -> None:
+                pass
+
+        Test.method(param=0)
+
+    def test_parameters_kwarg_dif_order(self):
+        class Test(std.BaseObject):
+            def method(self, a: int, b: str, c: bool) -> None:
+                pass
+
+        Test().method(c=True, a=0, b="string")
+
     def test_return_type_mismatch(self):
         class Test(std.BaseObject):
             def method(self) -> int:

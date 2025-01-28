@@ -79,16 +79,22 @@ def ForceStaticTyping(function: typing.Callable | types.MethodType):
             raise AnnotationException(f"Missing return type annotation for function {function.__name__}")
         parameter_annotations = function_annotations.values()
 
-        methods = inspect.getmembers(function_args[0], inspect.ismethod)
+        # Get the function signature to map named arguments to parameters.
+        signature = inspect.signature(function)
+        bound_arguments = signature.bind_partial(*function_args, **function_kwargs)
+        bound_arguments.apply_defaults()
+
+        # Collect ordered argument values based on the function signature
+        ordered_arguments = [bound_arguments.arguments[parameter] for parameter in signature.parameters]
+        methods = inspect.getmembers(ordered_arguments[0], inspect.ismethod)
         head = builtins.any([function.__name__ == method[0] for method in methods])
 
-        # The parameter annotations are checked against the arguments passed to the function. If the type is wrong, a
-        # TypeError is raised.
         # Check every parameter (except self) has a type annotation
         if len(parameter_annotations) < len(function_args[head:]):
             raise AnnotationException(
-                f"Missing type annotation for parameter {function_args[head:][len(parameter_annotations)]}")
-        for argument, expected_argument_type in zip(function_args[head:], parameter_annotations):
+                f"Missing type annotation for parameter {ordered_arguments[head:][len(parameter_annotations)]}")
+
+        for argument, expected_argument_type in zip(ordered_arguments[head:], parameter_annotations):
             try:
                 typeguard.check_type(argument, expected_argument_type)
             except typeguard.TypeCheckError:
