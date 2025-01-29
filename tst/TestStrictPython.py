@@ -8,7 +8,7 @@ class TestStrictPython(TestCase):
         class Test(std.BaseObject):
             attribute: int
 
-            def __init__(self):
+            def __init__(self) -> None:
                 self.attribute: int = 0
 
     def test_attribute_type_mismatch(self):
@@ -210,3 +210,15 @@ class TestStrictPython(TestCase):
 
         d = Derived()
         self.assertEqual(d.method(), 1)
+
+    def test_missing_parameter_annotation(self):
+        with self.assertRaises(std.AnnotationException):
+            class Test(std.BaseObject):
+                def method(self, param) -> None:
+                    pass
+
+    def test_missing_return_annotation(self):
+        with self.assertRaises(std.AnnotationException):
+            class Test(std.BaseObject):
+                def method(self):
+                    pass

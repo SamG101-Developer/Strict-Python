@@ -73,10 +73,7 @@ def ForceStaticTyping(function: typing.Callable | types.MethodType):
         # Get the annotations from the function. Separate the return annotation from the parameter annotations. Only the
         # values are kept, as the keys are the parameter names, and matching is done by indexing.
         function_annotations = typing.get_type_hints(function).copy()
-        if "return" in function_annotations.keys():
-            return_annotation = function_annotations.pop("return") or typing.NoReturn
-        else:
-            raise AnnotationException(f"Missing return type annotation for function {function.__name__}")
+        return_annotation = function_annotations.pop("return") or typing.NoReturn
         parameter_annotations = function_annotations.values()
 
         # Get the function signature to map named arguments to parameters.
@@ -88,11 +85,6 @@ def ForceStaticTyping(function: typing.Callable | types.MethodType):
         ordered_arguments = [bound_arguments.arguments[parameter] for parameter in signature.parameters]
         methods = inspect.getmembers(ordered_arguments[0], inspect.ismethod)
         head = builtins.any([function.__name__ == method[0] for method in methods])
-
-        # Check every parameter (except self) has a type annotation
-        if len(parameter_annotations) < len(function_args[head:]):
-            raise AnnotationException(
-                f"Missing type annotation for parameter {ordered_arguments[head:][len(parameter_annotations)]}")
 
         for argument, expected_argument_type in zip(ordered_arguments[head:], parameter_annotations):
             try:
@@ -154,6 +146,19 @@ class BaseObjectMetaClass(type):
 
                     if attr_name in b.__dict__ and not hasattr(attr_value, "__is_override__"):
                         raise OverrideMethodException(f"Method {attr_name} must be marked as override on class '{name}'")
+
+                # Check all parameters and return types are annotated
+                function_annotations = typing.get_type_hints(attr_value).copy()
+                parameter_annotations = function_annotations.values()
+                if "return" in function_annotations.keys():
+                    return_annotation = function_annotations.pop("return") or typing.NoReturn
+                else:
+                    raise AnnotationException(f"Missing return type annotation for function {attr_name}")
+
+                actual = dict(inspect.signature(attr_value).parameters)
+                if "self" in actual: actual.pop("self")
+                if len(parameter_annotations) < len(actual):
+                    raise AnnotationException(f"Missing type annotation for parameter {list(inspect.signature(attr_value).parameters.keys())[len(parameter_annotations)]}")
 
                 dictionary[attr_name] = ForceStaticTyping(attr_value)
 
