@@ -148,7 +148,7 @@ class BaseObjectMetaClass(type):
                         raise OverrideMethodException(f"Method {attr_name} must be marked as override on class '{name}'")
 
                 # Check all parameters and return types are annotated
-                function_annotations = typing.get_type_hints(attr_value).copy()
+                function_annotations = attr_value.__annotations__.copy()
                 parameter_annotations = function_annotations.values()
                 if "return" in function_annotations.keys():
                     return_annotation = function_annotations.pop("return") or typing.NoReturn
