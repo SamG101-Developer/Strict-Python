@@ -1,5 +1,6 @@
 from typing import Final as Const
-from typing import Optional, List, Dict, Any, Tuple, NoReturn
+from typing import Callable, Optional, List, Dict, Any, Tuple, NoReturn
+from types import MethodType
 
 Str = str
 Int = int
@@ -7,6 +8,7 @@ Float = float
 Bool = bool
 
 __all__ = [
+    "Callable",
     "Const",
     "Optional",
     "List",
@@ -17,5 +19,6 @@ __all__ = [
     "Int",
     "Float",
     "Bool",
-    "NoReturn"
+    "NoReturn",
+    "MethodType"
 ]
