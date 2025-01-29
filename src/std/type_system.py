@@ -189,11 +189,12 @@ class _BaseObject(metaclass=_BaseObjectMetaClass):
         @return: None (Doesnt work with "-> None").
         """
 
+        name = self.__class__.__name__
         attribute_annotations = typing.get_type_hints(self.__class__)
 
         # Check the attribute has been type-defined.
         if key not in self.__annotations__:
-            raise MissingAttributeTypeAnnotationException(f"Attribute '{key}' has no type annotation.")
+            raise MissingAttributeTypeAnnotationException(f"Attribute '{name}.{key}' has no type annotation.")
 
         # Check the attribute isn't const/final (allow setting in __init__).
         if typing.get_origin(attribute_annotations[key]) is Const and inspect.stack()[1].function != "__init__":
