@@ -503,3 +503,20 @@ class TestStrictPython(unittest.TestCase):
 
         def function() -> int:
             return Derived()._attribute
+
+    def test_deeper_inheritance(self) -> None:
+        class X(std.TypeChecker.BaseObject):
+            @std.virtual_method
+            def method(self) -> None:...
+
+        class Y(X):
+            @std.override_method
+            @std.virtual_method
+            def method(self) -> None:...
+
+        class Z(Y):
+            @std.override_method
+            def method(self) -> None:...
+
+        z = Z()
+        z.method()

@@ -193,7 +193,7 @@ class _BaseObject(metaclass=_BaseObjectMetaClass):
         attribute_annotations = typing.get_type_hints(self.__class__)
 
         # Check the attribute has been type-defined.
-        if key not in self.__annotations__:
+        if key not in attribute_annotations:
             raise MissingAttributeTypeAnnotationException(f"Attribute '{name}.{key}' has no type annotation.")
 
         # Check the attribute isn't const/final (allow setting in __init__).
@@ -201,7 +201,7 @@ class _BaseObject(metaclass=_BaseObjectMetaClass):
             raise ConstModifierException(f"Attribute '{key}' is const and cannot be modified.")
 
         # Check the type of the attribute.
-        typeguard.check_type(value, self.__annotations__[key])
+        typeguard.check_type(value, attribute_annotations[key])
         super().__setattr__(key, value)
 
     def __getattribute__(self, item: str) -> Any:
