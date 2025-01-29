@@ -139,6 +139,11 @@ class _BaseObjectMetaClass(type):
                 if field_name not in ignore_method_names:
                     dictionary[field_name] = _method_type_checker(field_value)
 
+            # Property return type annotation check.
+            elif isinstance(field_value, property):
+                if not hasattr(field_value.fget, "__annotations__") or "return" not in field_value.fget.__annotations__:
+                    raise MissingReturnTypeAnnotationException(f"Property '{name}.{field_name}' has no return type annotation.")
+
             # Attribute analysis code.
             else:
                 if not _is_special_identifier(field_name) and field_name not in dictionary.get("__annotations__", {}):

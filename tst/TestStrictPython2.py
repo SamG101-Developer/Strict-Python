@@ -46,6 +46,13 @@ class TestStrictPython(unittest.TestCase):
                 def method(self):
                     pass
 
+    def test_missing_property_return_annotation(self) -> None:
+        with self.assertRaises(std.MissingReturnTypeAnnotationException):
+            class Test(std.TypeChecker.BaseObject):
+                @property
+                def prop(self):
+                    pass
+
     def test_non_required_self_parameter_annotation(self) -> None:
         with self.assertRaises(std.UnnecessaryParameterTypeAnnotationException):
             class Test(std.TypeChecker.BaseObject):
@@ -100,6 +107,12 @@ class TestStrictPython(unittest.TestCase):
         class Test(std.TypeChecker.BaseObject):
             def method(self) -> int:
                 pass
+
+    def test_property_return_annotation(self) -> None:
+        class Test(std.TypeChecker.BaseObject):
+            @property
+            def prop(self) -> int:
+                return 1
 
     def test_attribute_annotations(self) -> None:
         class Test(std.TypeChecker.BaseObject):
