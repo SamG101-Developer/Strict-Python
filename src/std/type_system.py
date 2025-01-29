@@ -155,8 +155,13 @@ class BaseObjectMetaClass(type):
                 else:
                     raise AnnotationException(f"Missing return type annotation for function {attr_name}")
 
+                # Filter "self", "*args" and "**kwargs" from the parameter annotations
                 actual = dict(inspect.signature(attr_value).parameters)
                 if "self" in actual: actual.pop("self")
+                for k, v in actual.copy().items():
+                    if v.kind in [inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD]:
+                        actual.pop(k)
+
                 if len(parameter_annotations) < len(actual):
                     raise AnnotationException(f"Missing type annotation for parameter {list(inspect.signature(attr_value).parameters.keys())[len(parameter_annotations)]}")
 
