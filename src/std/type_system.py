@@ -140,7 +140,7 @@ class _BaseObjectMetaClass(type):
                     dictionary[field_name] = _method_type_checker(field_value)
 
             # Property return type annotation check.
-            elif isinstance(field_value, property):
+            elif isinstance(field_value, (property, functools.cached_property)):
                 if not hasattr(field_value.fget, "__annotations__") or "return" not in field_value.fget.__annotations__:
                     raise MissingReturnTypeAnnotationException(f"Property '{name}.{field_name}' has no return type annotation.")
 
