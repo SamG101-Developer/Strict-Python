@@ -142,7 +142,7 @@ class _BaseObjectMetaClass(type):
             # Attribute analysis code.
             else:
                 if not _is_special_identifier(field_name) and field_name not in dictionary.get("__annotations__", {}):
-                    raise MissingAttributeTypeAnnotationException(f"Attribute '{name}{field_name}' has no type annotation.")
+                    raise MissingAttributeTypeAnnotationException(f"Attribute '{name}.{field_name}' has no type annotation.")
 
         # Check all the abstract methods are implemented.
         for base_class in filter(lambda x: x is not _BaseObject, bases):
