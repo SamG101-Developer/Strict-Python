@@ -292,5 +292,6 @@ class TypeChecker:
 
 __all__ = [
     "enable_type_checking",
-    "TypeChecker"
+    "TypeChecker",
+    "ErrorLevel"
 ]
