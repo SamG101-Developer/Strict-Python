@@ -33,6 +33,7 @@ def _method_type_checker(method: Callable | MethodType) -> Callable:
     @functools.wraps(method)
     def _impl(*fn_args, **fn_kwargs) -> Any:
         # Check the arguments' annotations.
+        method_name = f"{method.__qualname__}"
         method_annotations = typing.get_type_hints(method)
         method_signature   = inspect.signature(method)
 
@@ -48,14 +49,14 @@ def _method_type_checker(method: Callable | MethodType) -> Callable:
         # Check the arguments' types.
         for arg, param_type in zip(ordered_arguments, method_annotations.values()):
             try: typeguard.check_type(arg, param_type)
-            except typeguard.TypeCheckError: raise TypeMismatchException(f"Argument '{arg}' is not of type '{param_type.__name__}'.")
+            except typeguard.TypeCheckError: raise TypeMismatchException(f"{method_name}: Argument '{arg}' is not of type '{param_type.__name__}'.")
 
         # Call the method and check the return type.
         result = method(*fn_args, **fn_kwargs)
         return_type = method_annotations["return"]
 
         try: typeguard.check_type(result, return_type)
-        except typeguard.TypeCheckError: raise TypeMismatchException(f"Return value '{result}' is not of type '{return_type.__name__}'.")
+        except typeguard.TypeCheckError: raise TypeMismatchException(f"{method_name}: Return value '{result}' is not of type '{return_type.__name__}'.")
         return result
 
     return _impl
