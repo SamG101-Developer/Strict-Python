@@ -103,6 +103,22 @@ class TestStrictPython(unittest.TestCase):
             def method(self, param: int, **kwargs) -> None:
                 pass
 
+    def test_parameter_annotations_passing_star_args(self) -> None:
+        class Test(std.TypeChecker.BaseObject):
+            def method(self, *args) -> None:
+                pass
+
+        t = Test()
+        t.method(0, 1, 2)
+
+    def test_parameter_annotations_passing_star_kwargs(self) -> None:
+        class Test(std.TypeChecker.BaseObject):
+            def method(self, **kwargs) -> None:
+                pass
+
+        t = Test()
+        t.method(key1=0, key2=1, key3=2)
+
     def test_return_annotation(self) -> None:
         class Test(std.TypeChecker.BaseObject):
             def method(self) -> int:

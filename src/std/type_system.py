@@ -46,8 +46,9 @@ def _method_type_checker(method: Callable | MethodType) -> Callable:
         if dict(method_signature.parameters).get("self") is not None:
             ordered_arguments.pop(0)
 
-        # Check the arguments' types.
+        # Check the arguments' types, skipping ignored parameters (self, *args, **kwargs)
         for arg, param_type in zip(ordered_arguments, method_annotations.values()):
+            if param_type is type(None): continue
             try: typeguard.check_type(arg, param_type)
             except typeguard.TypeCheckError: raise TypeMismatchException(f"{method_name}: Argument '{arg}' is not of type '{param_type.__name__}'.")
 
