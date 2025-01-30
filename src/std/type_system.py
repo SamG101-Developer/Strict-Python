@@ -48,14 +48,14 @@ def _method_type_checker(method: Callable | MethodType) -> Callable:
         # Check the arguments' types.
         for arg, param_type in zip(ordered_arguments, method_annotations.values()):
             try: typeguard.check_type(arg, param_type)
-            except typeguard.TypeCheckError: raise TypeMismatchException(f"Argument '{arg}' is not of type '{param_type}'.")
+            except typeguard.TypeCheckError: raise TypeMismatchException(f"Argument '{arg}' is not of type '{param_type.__name__}'.")
 
         # Call the method and check the return type.
         result = method(*fn_args, **fn_kwargs)
         return_type = method_annotations["return"]
 
         try: typeguard.check_type(result, return_type)
-        except typeguard.TypeCheckError: raise TypeMismatchException(f"Return value '{result}' is not of type '{return_type}'.")
+        except typeguard.TypeCheckError: raise TypeMismatchException(f"Return value '{result}' is not of type '{return_type.__name__}'.")
         return result
 
     return _impl
@@ -205,7 +205,7 @@ class _BaseObject(metaclass=_BaseObjectMetaClass):
 
         # Check the type of the attribute.
         try: typeguard.check_type(value, attribute_annotations[key])
-        except typeguard.TypeCheckError: raise TypeMismatchException(f"Attribute '{name}.{key}' is not of type '{attribute_annotations[key]}'.")
+        except typeguard.TypeCheckError: raise TypeMismatchException(f"Attribute '{name}.{key}' is not of type '{attribute_annotations[key].__name__}'.")
         super().__setattr__(key, value)
 
     def __getattribute__(self, item: str) -> Any:
