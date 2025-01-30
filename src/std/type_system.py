@@ -47,12 +47,15 @@ def _method_type_checker(method: Callable | MethodType) -> Callable:
 
         # Check the arguments' types.
         for arg, param_type in zip(ordered_arguments, method_annotations.values()):
-            typeguard.check_type(arg, param_type)
+            try: typeguard.check_type(arg, param_type)
+            except typeguard.TypeCheckError: raise TypeMismatchException(f"Argument '{arg}' is not of type '{param_type}'.")
 
         # Call the method and check the return type.
         result = method(*fn_args, **fn_kwargs)
         return_type = method_annotations["return"]
-        typeguard.check_type(result, return_type)
+
+        try: typeguard.check_type(result, return_type)
+        except typeguard.TypeCheckError: raise TypeMismatchException(f"Return value '{result}' is not of type '{return_type}'.")
         return result
 
     return _impl
@@ -201,7 +204,8 @@ class _BaseObject(metaclass=_BaseObjectMetaClass):
             raise ConstModifierException(f"Attribute '{key}' is const and cannot be modified.")
 
         # Check the type of the attribute.
-        typeguard.check_type(value, attribute_annotations[key])
+        try: typeguard.check_type(value, attribute_annotations[key])
+        except typeguard.TypeCheckError: raise TypeMismatchException(f"Attribute '{name}.{key}' is not of type '{attribute_annotations[key]}'.")
         super().__setattr__(key, value)
 
     def __getattribute__(self, item: str) -> Any:

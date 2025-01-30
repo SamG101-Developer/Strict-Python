@@ -48,35 +48,39 @@ class ConstModifierException(BaseException):
     """
 
 
-class VirtualMethodException(Exception):
+class VirtualMethodException(BaseException):
     """
     This exception is thrown when an overridden method is not marked as virtual or abstract, or a non-virtual method is
     marked as override.
     """
 
 
-class OverrideMethodException(Exception):
+class OverrideMethodException(BaseException):
     """
     This exception is thrown either when an overriding method is not marked as override, or when an override method is
     overriding a method that doesn't exist.
     """
 
 
-class AbstractMethodException(Exception):
+class AbstractMethodException(BaseException):
     """
     This exception is thrown when an abstract method is not implemented in a subclass. Abstract methods must be
     implemented in all subclasses.
     """
 
 
-class AccessModifierException(Exception):
+class AccessModifierException(BaseException):
     """
     This exception is raised when a non-friendly method or class tries to access a protected / private attribute or
     method.
     """
 
 
-TypeMismatchException = typeguard.TypeCheckError
+class TypeMismatchException(BaseException):
+    """
+    This exception is raised when a type annotation does not match the type of the object.
+    """
+
 
 __all__ = [
     "MissingParameterTypeAnnotationException",
