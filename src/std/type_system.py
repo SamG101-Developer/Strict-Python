@@ -3,6 +3,8 @@ import functools
 import inspect
 import typing
 import re
+import enum
+import warnings
 
 import typeguard
 
@@ -10,16 +12,29 @@ from std.exceptions import *
 from std.types import *
 
 
-def enable_type_checking():
+class ErrorLevel(enum.Enum):
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+
+
+def enable_type_checking(error_level: ErrorLevel = ErrorLevel.ERROR) -> None:
     """
     Enable the type checking options by allowing the BaseObject to be used. By default, the BaseObject type aliases
     "object", to avoid the slowdown of type checking. This function can be called to enable the BaseObject type checking
     by mapping BaseObject to the "_BaseObject" type.
     @return:
     """
+
     assert TypeChecker.BaseObject is object, "Type checking is already enabled."
     TypeChecker.BaseObject = _BaseObject
+    TypeChecker.ErrorLevel = error_level
     print("Type checking enabled.")
+
+
+def _handle_error(error: BaseException) -> None:
+    if TypeChecker.ErrorLevel is ErrorLevel.ERROR:
+        raise error
+    warnings.warn(str(error))
 
 
 def _method_type_checker(method: Callable | MethodType) -> Callable:
@@ -50,14 +65,14 @@ def _method_type_checker(method: Callable | MethodType) -> Callable:
         for arg, param_type in zip(ordered_arguments, method_annotations.values()):
             if param_type is type(None): continue
             try: typeguard.check_type(arg, param_type)
-            except typeguard.TypeCheckError: raise TypeMismatchException(f"{method_name}: Argument '{arg}' is not of type '{param_type.__name__}'.")
+            except typeguard.TypeCheckError: _handle_error(TypeMismatchException(f"{method_name}: Argument '{arg}' is not of type '{param_type.__name__}'."))
 
         # Call the method and check the return type.
         result = method(*fn_args, **fn_kwargs)
         return_type = method_annotations["return"]
 
         try: typeguard.check_type(result, return_type)
-        except typeguard.TypeCheckError: raise TypeMismatchException(f"{method_name}: Return value '{result}' is not of type '{return_type.__name__}'.")
+        except typeguard.TypeCheckError: _handle_error(TypeMismatchException(f"{method_name}: Return value '{result}' is not of type '{return_type.__name__}'."))
         return result
 
     return _impl
@@ -113,32 +128,32 @@ class _BaseObjectMetaClass(type):
 
                             # Check if a method is overridden, it is virtual or abstract.
                             if not hasattr(base_field_value, "__is_virtual__") and not hasattr(base_field_value, "__is_abstract__") and not _is_special_identifier(field_name):
-                                raise VirtualMethodException(f"Method '{base_class.__name__}.{field_name}' must be marked as '@virtual_method' or '@abstract_method'.")
+                                _handle_error(VirtualMethodException(f"Method '{base_class.__name__}.{field_name}' must be marked as '@virtual_method' or '@abstract_method'."))
 
                             # Check if a method is overriding, it is marked as override.
                             if not hasattr(field_value, "__is_override__") and not _is_special_identifier(field_name):
-                                raise OverrideMethodException(f"Method '{name}.{field_name}' must be marked as '@override_method'.")
+                                _handle_error(OverrideMethodException(f"Method '{name}.{field_name}' must be marked as '@override_method'."))
 
                 # Check if an @override_method is overriding a method that doesn't exist.
                 if hasattr(field_value, "__is_override__") and not any(field_name in base_class.__dict__ for base_class in bases):
-                    raise OverrideMethodException(f"Method '{name}.{field_name}' is marked as '@override_method', but no method to override exists.")
+                    _handle_error(OverrideMethodException(f"Method '{name}.{field_name}' is marked as '@override_method', but no method to override exists."))
 
                 # Check the return type is annotated.
                 method_annotations = field_value.__annotations__.copy()
                 if method_annotations.pop("return", None) is None:
-                    raise MissingReturnTypeAnnotationException(f"Method '{name}.{field_name}' has no return type annotation.")
+                    _handle_error(MissingReturnTypeAnnotationException(f"Method '{name}.{field_name}' has no return type annotation."))
 
                 # Check all the parameters are annotated.
                 method_parameters = dict(inspect.signature(field_value).parameters)
                 method_parameters = {k: v for k, v in method_parameters.items() if not _should_ignore_parameter(k, v)}
                 for p_name, p in method_parameters.items():
                     if p.annotation is inspect.Parameter.empty:
-                        raise MissingParameterTypeAnnotationException(f"Parameter '{p_name}' in method '{field_name}' has no type annotation.")
+                        _handle_error(MissingParameterTypeAnnotationException(f"Parameter '{p_name}' in method '{field_name}' has no type annotation."))
 
                 # Check no unnecessary annotations are present.
                 for p_name, p in inspect.signature(field_value).parameters.items():
                     if _should_ignore_parameter(p_name, p) and p.annotation is not inspect.Parameter.empty:
-                        raise UnnecessaryParameterTypeAnnotationException(f"Parameter '{p_name}' in method '{field_name}' should not have a type annotation.")
+                        _handle_error(UnnecessaryParameterTypeAnnotationException(f"Parameter '{p_name}' in method '{field_name}' should not have a type annotation."))
 
                 # Wrap the function in the runtime checker.
                 if field_name not in ignore_method_names:
@@ -147,24 +162,24 @@ class _BaseObjectMetaClass(type):
             # Property return type annotation check.
             elif isinstance(field_value, property):
                 if not hasattr(field_value.fget, "__annotations__") or "return" not in field_value.fget.__annotations__:
-                    raise MissingReturnTypeAnnotationException(f"Property '{name}.{field_name}' has no return type annotation.")
+                    _handle_error(MissingReturnTypeAnnotationException(f"Property '{name}.{field_name}' has no return type annotation."))
 
             # Cached property return type annotation check.
             elif isinstance(field_value, functools.cached_property):
                 if not hasattr(field_value.func, "__annotations__") or "return" not in field_value.func.__annotations__:
-                    raise MissingReturnTypeAnnotationException(f"Cached property '{name}.{field_name}' has no return type annotation.")
+                    _handle_error(MissingReturnTypeAnnotationException(f"Cached property '{name}.{field_name}' has no return type annotation."))
 
             # Attribute analysis code.
             else:
                 if not _is_special_identifier(field_name) and field_name not in dictionary.get("__annotations__", {}):
-                    raise MissingAttributeTypeAnnotationException(f"Attribute '{name}.{field_name}' has no type annotation.")
+                    _handle_error(MissingAttributeTypeAnnotationException(f"Attribute '{name}.{field_name}' has no type annotation."))
 
         # Check all the abstract methods are implemented.
         for base_class in filter(lambda x: x is not _BaseObject, bases):
             for b_field_name, b_field_value in base_class.__dict__.items():
                 if builtins.callable(b_field_value) and hasattr(b_field_value, "__is_abstract__"):
                     if b_field_name not in dictionary:
-                        raise AbstractMethodException(f"Abstract method '{base_class.__name__}.{b_field_name}' must be implemented in class {name}.")
+                        _handle_error(AbstractMethodException(f"Abstract method '{base_class.__name__}.{b_field_name}' must be implemented in class {name}."))
 
         return super(_BaseObjectMetaClass, cls).__new__(cls, name, bases, dictionary)
 
@@ -199,15 +214,15 @@ class _BaseObject(metaclass=_BaseObjectMetaClass):
 
         # Check the attribute has been type-defined.
         if key not in attribute_annotations:
-            raise MissingAttributeTypeAnnotationException(f"Attribute '{name}.{key}' has no type annotation.")
+            _handle_error(MissingAttributeTypeAnnotationException(f"Attribute '{name}.{key}' has no type annotation."))
 
         # Check the attribute isn't const/final (allow setting in __init__).
         if typing.get_origin(attribute_annotations[key]) is Const and inspect.stack()[1].function != "__init__":
-            raise ConstModifierException(f"Attribute '{key}' is const and cannot be modified.")
+            _handle_error(ConstModifierException(f"Attribute '{key}' is const and cannot be modified."))
 
         # Check the type of the attribute.
         try: typeguard.check_type(value, attribute_annotations[key])
-        except typeguard.TypeCheckError: raise TypeMismatchException(f"Attribute '{name}.{key}' is not of type '{attribute_annotations[key].__name__}'.")
+        except typeguard.TypeCheckError: _handle_error(TypeMismatchException(f"Attribute '{name}.{key}' is not of type '{attribute_annotations[key].__name__}'."))
         super().__setattr__(key, value)
 
     def __getattribute__(self, item: str) -> Any:
@@ -267,11 +282,12 @@ class _BaseObject(metaclass=_BaseObjectMetaClass):
             if caller_context_method_name in super().__getattribute__("__friends__"):
                 return super().__getattribute__(private_identifier_regex.sub(this_class_identifier, item))
 
-        raise AccessModifierException(f"Access to protected/private member '{self.__class__.__name__}.{item}' is not allowed.")
+        _handle_error(AccessModifierException(f"Access to protected/private member '{self.__class__.__name__}.{item}' is not allowed."))
 
 
 class TypeChecker:
     BaseObject: type[object | _BaseObject] = object
+    ErrorLevel: ErrorLevel = ErrorLevel.ERROR
 
 
 __all__ = [
